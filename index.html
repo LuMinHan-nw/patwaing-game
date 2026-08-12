@@ -184,6 +184,10 @@
   }
 
   .back-note a { color: var(--gold); }
+
+  /* The elements above set an explicit display, which beats the browser's
+     built-in rule for [hidden] and leaves them on screen. */
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>

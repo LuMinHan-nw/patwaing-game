@@ -439,6 +439,32 @@ const backLink = document.getElementById('backLink');
 backLink.href =
   'https://cdn.botpress.cloud/webchat/v3.7/shareable.html?configUrl=https://files.bpcontent.cloud/2026/07/06/15/20260706154253-12RQCOG9.json';
 backLink.target = '_top';
+
+// Mg Waing's game card opens this page in a NEW tab, so the chat the player
+// came from is still sitting open behind us. Following the href in that case
+// loads a second copy of the same conversation and leaves them with two
+// identical chat tabs. So when we know we were opened from the chat, just
+// close this tab - that drops them straight back on the real conversation.
+//
+// The game runs in an iframe inside play.html, so the tab-level window (and
+// therefore the opener) is window.top. Same origin, so this is readable.
+backLink.addEventListener('click', function (e) {
+  let top;
+  try {
+    top = window.top;
+    if (!top.opener || top.opener.closed) return;   // opened directly - use the href
+  } catch (err) {
+    return;                                          // can't see the top window - use the href
+  }
+
+  e.preventDefault();
+  try { top.opener.focus(); } catch (err) { /* focusing is a nicety, not required */ }
+  top.close();
+
+  // If the browser refused to close the tab, fall back to navigating so the
+  // button is never a dead end.
+  setTimeout(function () { top.location.href = backLink.href; }, 150);
+});
 </script>
 
 </body>

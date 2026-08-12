@@ -75,13 +75,19 @@
   }
 
   #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* The webchat is loaded only so it can hand the score to Mg Waing. Nothing
+     of it should be visible - no bubble, no panel. This is the outer container
+     the inject script appends to <body>; everything else lives in a shadow
+     root inside it, so hiding this hides the lot. */
+  .bpChatContainer { display: none !important; }
 </style>
 </head>
 <body>
 
 <header>
   <h1>MG WAING</h1>
-  <p>Play the drum circle. Your score goes to Mg Waing when a run ends - open the chat bubble if you want to talk to him.</p>
+  <p>Play the drum circle. Your score goes to Mg Waing when a run ends.</p>
 </header>
 
 <div class="game-pane">
@@ -99,13 +105,9 @@
 // run ends. We catch it here and send it into the chat as if the player had
 // typed it, so Mg Waing reacts to the score.
 //
-// The panel is left CLOSED on purpose. Players arrive here from the chat, so
-// popping it open again covers the drum circle for no reason. It sits as the
-// bubble in the corner if they want it.
-//
-// Note: this version of the Botpress script always renders its own floating
-// panel in the bottom-right corner - it does not embed into an element you
-// choose.
+// The webchat is completely hidden (see .bpChatContainer in the CSS). It is
+// here for one reason only: it is the only thing that can write the score back
+// to Mg Waing. The player talks to him on the chat page, not on this one.
 // ---------------------------------------------------------------------------
 
 const CLIENT_ID = '208dcc68-b35f-49e0-aa13-8a205301e89b';
@@ -145,11 +147,16 @@ function sendResult(result) {
   // updateUser is silent, so it can never collide with whatever the bot is
   // waiting for. The build guide has the menu option that reads it back out.
   try {
-    window.botpress.updateUser({
-      data: {
-        gameScore: result.score,
-        gameRound: result.round
-      }
+    // sendEvent is what actually reaches the workflow. A Custom Trigger in the
+    // Main flow filters on type === 'patwaingScore' and copies the numbers into
+    // the user variables. updateUser is NOT used for this: the webchat stores
+    // that data somewhere the workflow's `user` object cannot see - verified by
+    // dumping JSON.stringify(user) inside an Execute Code card, which showed
+    // only the declared variables, still at 0.
+    window.botpress.sendEvent({
+      type: 'patwaingScore',
+      score: result.score,
+      round: result.round
     });
   } catch (e) {
     pending = result;   // webchat not up yet; the ready handler will retry

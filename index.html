@@ -431,15 +431,14 @@ document.addEventListener('keydown', function (e) {
   if (n >= 1 && n <= NOTES.length) hitDrum(n - 1);
 });
 
-// The chatbot link is set here so it is easy to change in one place. Inside
-// play.html the chat is already on screen, so the link is just noise.
+// The chatbot link is set here so it is easy to change in one place. It is
+// always shown: inside play.html the webchat is hidden, so this is the only
+// way back. target=_top so it escapes the frame rather than loading the chat
+// inside it.
 const backLink = document.getElementById('backLink');
-if (window.parent !== window) {
-  backLink.style.display = 'none';
-} else {
-  backLink.href =
-    'https://cdn.botpress.cloud/webchat/v3.7/shareable.html?configUrl=https://files.bpcontent.cloud/2026/07/06/15/20260706154253-12RQCOG9.json';
-}
+backLink.href =
+  'https://cdn.botpress.cloud/webchat/v3.7/shareable.html?configUrl=https://files.bpcontent.cloud/2026/07/06/15/20260706154253-12RQCOG9.json';
+backLink.target = '_top';
 </script>
 
 </body>

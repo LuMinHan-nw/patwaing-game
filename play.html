@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mg Waing &amp; Pat Waing Echo</title>
+<style>
+  :root {
+    --lacquer: #1a0d0a;
+    --gold: #d9a441;
+    --text: #f2e3c8;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--lacquer);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(217,164,65,0.3);
+    flex: none;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 1rem;
+    letter-spacing: 2px;
+    color: var(--gold);
+  }
+
+  header p {
+    margin: 4px 0 0;
+    font-size: 0.78rem;
+    opacity: 0.6;
+  }
+
+  /* The game sits in an iframe. On a wide screen we leave a gap on the right
+     so the Botpress panel, which floats in that corner, doesn't cover it. */
+  .game-pane {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+
+  @media (min-width: 900px) {
+    .game-pane { width: calc(100% - 420px); }
+  }
+
+  .game-pane iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+  }
+
+  #toast {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    max-width: 320px;
+    padding: 12px 16px;
+    border: 1px solid var(--gold);
+    border-radius: 8px;
+    background: rgba(26,13,10,0.95);
+    font-size: 0.85rem;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none;
+  }
+
+  #toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MG WAING</h1>
+  <p>Play the drum circle, ask Mg Waing anything about it. Your score is handed to the bot when a run ends.</p>
+</header>
+
+<div class="game-pane">
+  <iframe src="index.html" title="Pat Waing Echo"></iframe>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script src="https://cdn.botpress.cloud/webchat/v3.7/inject.js"></script>
+<script>
+// ---------------------------------------------------------------------------
+// Puts the Mg Waing webchat on the same page as the game and lets them talk.
+//
+// The game runs in the iframe and posts its result out with postMessage when a
+// run ends. We catch it here and send it into the chat as if the player had
+// typed it, so Mg Waing reacts to the score.
+//
+// Note: this version of the Botpress script always renders its own floating
+// panel in the bottom-right corner - it does not embed into an element you
+// choose. That is why the game pane is narrowed on wide screens instead.
+// ---------------------------------------------------------------------------
+
+const CLIENT_ID = '208dcc68-b35f-49e0-aa13-8a205301e89b';
+
+let chatReady = false;
+let pending = null;   // a result that arrived before the chat finished loading
+
+window.botpress.on('webchat:ready', function () {
+  chatReady = true;
+  if (pending) {
+    sendResult(pending);
+    pending = null;
+  }
+});
+
+window.botpress.init({
+  clientId: CLIENT_ID,
+  configuration: {
+    botName: 'Mg Waing',
+    color: '#8c2f22',
+    variant: 'solid',
+    themeMode: 'light',
+    radius: 4
+  }
+});
+
+// Open straight away rather than waiting for webchat:ready. Depending on how
+// fast the script loads, ready can fire only *after* the panel is opened, so
+// opening from inside that handler can leave it shut for good.
+window.botpress.open();
+
+function sendResult(result) {
+  // The score goes onto the Botpress user record, where the workflow reads it
+  // as user.gameScore and user.gameRound.
+  //
+  // Deliberately NOT sent as a chat message. Mg Waing spends most of its time
+  // parked on a Single Choice card ("What would you like to know about Pat
+  // Waing"), and a choice card rejects free text - posting the score there just
+  // produces "The response could not be captured. Please try again."
+  // updateUser is silent, so it can never collide with whatever the bot is
+  // waiting for. The build guide has the menu option that reads it back out.
+  window.botpress.updateUser({
+    data: {
+      gameScore: result.score,
+      gameRound: result.round
+    }
+  });
+
+  toast('Score sent to Mg Waing - ask "How did I do?" in the chat.');
+  window.botpress.open();
+}
+
+function toast(text) {
+  const el = document.getElementById('toast');
+  el.textContent = text;
+  el.classList.add('show');
+  setTimeout(function () { el.classList.remove('show'); }, 6000);
+}
+
+window.addEventListener('message', function (event) {
+  // Only listen to our own game frame, and only to the message we expect.
+  if (event.origin !== window.location.origin) return;
+  if (!event.data || event.data.type !== 'patwaing:gameover') return;
+
+  if (chatReady) {
+    sendResult(event.data);
+  } else {
+    pending = event.data;
+  }
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pat Waing Echo</title>
+<style>
+  :root {
+    --lacquer: #1a0d0a;
+    --lacquer-light: #2b1512;
+    --gold: #d9a441;
+    --gold-bright: #ffd77a;
+    --red: #8c2f22;
+    --text: #f2e3c8;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at 50% 30%, var(--lacquer-light), var(--lacquer) 70%);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px 40px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.6rem, 6vw, 2.4rem);
+    letter-spacing: 2px;
+    color: var(--gold);
+  }
+
+  .subtitle {
+    margin: 6px 0 18px;
+    font-size: 0.85rem;
+    opacity: 0.7;
+    text-align: center;
+    max-width: 420px;
+  }
+
+  /* --- scoreboard --- */
+  .scoreboard {
+    display: flex;
+    gap: 28px;
+    margin-bottom: 14px;
+  }
+
+  .score-box {
+    text-align: center;
+    min-width: 70px;
+  }
+
+  .score-box .label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.6;
+  }
+
+  .score-box .value {
+    display: block;
+    font-size: 1.6rem;
+    color: var(--gold-bright);
+  }
+
+  /* --- the drum circle --- */
+  #circle {
+    position: relative;
+    width: min(88vw, 380px);
+    height: min(88vw, 380px);
+    border-radius: 50%;
+    border: 3px solid var(--gold);
+    background:
+      repeating-conic-gradient(from 0deg, rgba(217,164,65,0.08) 0deg 10deg, transparent 10deg 20deg),
+      var(--lacquer-light);
+    box-shadow: 0 0 40px rgba(0,0,0,0.6), inset 0 0 30px rgba(0,0,0,0.5);
+    margin-bottom: 18px;
+  }
+
+  .drum {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 2px solid var(--gold);
+    background: radial-gradient(circle at 35% 30%, #6b4a2a, var(--red));
+    cursor: pointer;
+    transition: transform 0.08s, box-shadow 0.12s, background 0.12s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .drum::after {
+    /* the black tuning paste (pat sa) at the centre of a real drum head */
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40%;
+    height: 40%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: #120a08;
+  }
+
+  .drum.lit {
+    background: radial-gradient(circle at 35% 30%, var(--gold-bright), var(--gold));
+    box-shadow: 0 0 22px var(--gold-bright);
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+
+  .drum.wrong {
+    background: radial-gradient(circle at 35% 30%, #ff8a7a, #b3261e);
+    box-shadow: 0 0 22px #ff5c47;
+  }
+
+  #circle.locked .drum { cursor: default; }
+
+  /* --- status + controls --- */
+  #status {
+    min-height: 28px;
+    font-size: 1.05rem;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+
+  .controls { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  button {
+    font: inherit;
+    padding: 10px 22px;
+    border-radius: 999px;
+    border: 2px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  button:hover { background: var(--gold); color: var(--lacquer); }
+
+  button.primary { background: var(--gold); color: var(--lacquer); }
+  button.primary:hover { background: var(--gold-bright); }
+
+  .back-link {
+    margin-top: 26px;
+    font-size: 0.85rem;
+    color: var(--gold);
+  }
+
+  .hint {
+    margin-top: 10px;
+    font-size: 0.75rem;
+    opacity: 0.5;
+  }
+</style>
+</head>
+<body>
+
+<h1>PAT WAING ECHO</h1>
+<p class="subtitle">
+  Mg Waing plays a phrase on the tuned drum circle. Listen, then tap the same drums back
+  in the same order. Each round adds one more drum.
+</p>
+
+<div class="scoreboard">
+  <div class="score-box"><span class="label">Round</span><span class="value" id="round">-</span></div>
+  <div class="score-box"><span class="label">Score</span><span class="value" id="score">0</span></div>
+  <div class="score-box"><span class="label">Best</span><span class="value" id="best">0</span></div>
+</div>
+
+<div id="circle" class="locked"></div>
+
+<div id="status">Press Start to begin.</div>
+
+<div class="controls">
+  <button id="startBtn" class="primary">Start</button>
+  <button id="freeBtn">Free play</button>
+</div>
+
+<p class="hint">Tip: you can also use the number keys 1&ndash;9.</p>
+
+<a class="back-link" href="#" id="backLink">&larr; Back to Mg Waing</a>
+
+<script>
+// ---------------------------------------------------------------------------
+// Pat Waing Echo - a memory game on the Burmese tuned drum circle.
+//
+// A real pat waing has 21 drums hung inside a circular frame, each tuned to a
+// different pitch so one player can pick out a melody. This uses 9 of them,
+// tuned to a pentatonic scale (an approximation - the real tuning is close to
+// equidistant and does not line up with Western notes).
+// ---------------------------------------------------------------------------
+
+// Low to high. Bigger drums sit at the low end, same as the real instrument.
+const NOTES = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99];
+
+const circle   = document.getElementById('circle');
+const statusEl = document.getElementById('status');
+const roundEl  = document.getElementById('round');
+const scoreEl  = document.getElementById('score');
+const bestEl   = document.getElementById('best');
+const startBtn = document.getElementById('startBtn');
+const freeBtn  = document.getElementById('freeBtn');
+
+let audioCtx = null;
+let sequence = [];      // the drums the player has to echo back
+let inputPos = 0;       // how far through the sequence the player is
+let score = 0;
+let best = Number(localStorage.getItem('patWaingBest') || 0);
+let mode = 'idle';      // idle | watching | playing | free
+
+bestEl.textContent = best;
+
+// --- build the drum circle -------------------------------------------------
+
+const drums = [];
+
+function buildCircle() {
+  const size = circle.clientWidth;
+  const radius = size * 0.35;
+
+  NOTES.forEach(function (freq, i) {
+    // Start at the top and go clockwise, leaving a gap where the player sits.
+    const angle = (-Math.PI / 2) + (i / NOTES.length) * Math.PI * 1.75;
+
+    // Low drums are physically larger than high ones.
+    const drumSize = size * (0.17 - i * 0.006);
+
+    const drum = document.createElement('div');
+    drum.className = 'drum';
+    drum.style.width  = drumSize + 'px';
+    drum.style.height = drumSize + 'px';
+    drum.style.left   = (size / 2 + radius * Math.cos(angle)) + 'px';
+    drum.style.top    = (size / 2 + radius * Math.sin(angle)) + 'px';
+
+    drum.addEventListener('pointerdown', function () { hitDrum(i); });
+
+    circle.appendChild(drum);
+    drums.push(drum);
+  });
+}
+
+buildCircle();
+
+// Rebuild on resize so the layout stays circular on rotate / window drag.
+window.addEventListener('resize', function () {
+  circle.innerHTML = '';
+  drums.length = 0;
+  buildCircle();
+});
+
+// --- sound -----------------------------------------------------------------
+
+function getAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  // Browsers suspend the context until the user interacts with the page.
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playTone(freq) {
+  const ctx = getAudio();
+  const now = ctx.currentTime;
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = 'sine';
+  // A struck drum head drops in pitch as it decays - that bend is what makes
+  // it read as a drum rather than a beep.
+  osc.frequency.setValueAtTime(freq * 1.4, now);
+  osc.frequency.exponentialRampToValueAtTime(freq, now + 0.06);
+
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.35, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 1);
+}
+
+// --- animation helpers -----------------------------------------------------
+
+function light(index, className) {
+  const drum = drums[index];
+  drum.classList.add(className || 'lit');
+  setTimeout(function () { drum.classList.remove(className || 'lit'); }, 260);
+}
+
+function strike(index, className) {
+  playTone(NOTES[index]);
+  light(index, className);
+}
+
+// --- game flow -------------------------------------------------------------
+
+function startGame() {
+  getAudio();               // unlock audio on this click
+  sequence = [];
+  score = 0;
+  scoreEl.textContent = '0';
+  mode = 'watching';
+  nextRound();
+}
+
+function nextRound() {
+  sequence.push(Math.floor(Math.random() * NOTES.length));
+  inputPos = 0;
+  roundEl.textContent = sequence.length;
+  playSequence();
+}
+
+function playSequence() {
+  mode = 'watching';
+  circle.classList.add('locked');
+  statusEl.textContent = 'Listen...';
+
+  let i = 0;
+  const timer = setInterval(function () {
+    strike(sequence[i]);
+    i++;
+    if (i >= sequence.length) {
+      clearInterval(timer);
+      setTimeout(function () {
+        mode = 'playing';
+        circle.classList.remove('locked');
+        statusEl.textContent = 'Your turn - tap it back.';
+      }, 500);
+    }
+  }, 550);
+}
+
+function hitDrum(index) {
+  if (mode === 'free') {
+    strike(index);
+    return;
+  }
+  if (mode !== 'playing') return;
+
+  if (index === sequence[inputPos]) {
+    strike(index);
+    inputPos++;
+
+    if (inputPos === sequence.length) {
+      score += sequence.length;
+      scoreEl.textContent = score;
+      statusEl.textContent = 'Correct!';
+      circle.classList.add('locked');
+      setTimeout(nextRound, 900);
+    }
+  } else {
+    gameOver(index);
+  }
+}
+
+function gameOver(wrongIndex) {
+  mode = 'idle';
+  circle.classList.add('locked');
+  light(wrongIndex, 'wrong');
+  playTone(90);   // dull thud
+
+  const isBest = score > best;
+  if (isBest) {
+    best = score;
+    localStorage.setItem('patWaingBest', best);
+    bestEl.textContent = best;
+    statusEl.textContent = 'New best! You reached round ' + sequence.length + '.';
+  } else {
+    statusEl.textContent = 'Missed it. You reached round ' + sequence.length + '.';
+  }
+
+  startBtn.textContent = 'Play again';
+
+  // When the game is running inside play.html, hand the result to the page so
+  // it can pass it on to Mg Waing. Does nothing when opened on its own.
+  if (window.parent !== window) {
+    window.parent.postMessage({
+      type: 'patwaing:gameover',
+      score: score,
+      round: sequence.length,
+      isBest: isBest
+    }, '*');
+  }
+}
+
+// --- controls --------------------------------------------------------------
+
+startBtn.addEventListener('click', function () {
+  freeBtn.textContent = 'Free play';
+  startGame();
+});
+
+freeBtn.addEventListener('click', function () {
+  getAudio();
+  if (mode === 'free') {
+    mode = 'idle';
+    circle.classList.add('locked');
+    freeBtn.textContent = 'Free play';
+    statusEl.textContent = 'Press Start to begin.';
+  } else {
+    mode = 'free';
+    circle.classList.remove('locked');
+    freeBtn.textContent = 'Stop free play';
+    statusEl.textContent = 'Free play - tap any drum.';
+    roundEl.textContent = '-';
+  }
+});
+
+document.addEventListener('keydown', function (e) {
+  const n = Number(e.key);
+  if (n >= 1 && n <= NOTES.length) hitDrum(n - 1);
+});
+
+// The chatbot link is set here so it is easy to change in one place. Inside
+// play.html the chat is already on screen, so the link is just noise.
+const backLink = document.getElementById('backLink');
+if (window.parent !== window) {
+  backLink.style.display = 'none';
+} else {
+  backLink.href =
+    'https://cdn.botpress.cloud/webchat/v3.7/shareable.html?configUrl=https://files.bpcontent.cloud/2026/07/06/15/20260706154253-12RQCOG9.json';
+}
+</script>
+
+</body>
+</html>

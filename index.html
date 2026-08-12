@@ -168,6 +168,22 @@
     font-size: 0.75rem;
     opacity: 0.5;
   }
+
+  /* Shown in place of the back button once it has been pressed. It has to be
+     readable - it is carrying the score the player needs to type - so it does
+     not get the dimming the other hints have. */
+  .back-note {
+    margin: 20px auto 0;
+    max-width: 420px;
+    padding: 14px 18px;
+    border: 1px solid var(--gold);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    opacity: 1;
+  }
+
+  .back-note a { color: var(--gold); }
 </style>
 </head>
 <body>
@@ -196,7 +212,8 @@
 <p class="hint">Tip: you can also use the number keys 1&ndash;9.</p>
 
 <a class="back-link" href="#" id="backLink">&larr; Back to Mg Waing</a>
-<p class="hint">Tell him how you did when you get there.</p>
+<p class="hint" id="backHint">Tell him how you did when you get there.</p>
+<p class="hint back-note" id="backNote" hidden></p>
 
 <script>
 // ---------------------------------------------------------------------------
@@ -436,34 +453,46 @@ document.addEventListener('keydown', function (e) {
 // way back. target=_top so it escapes the frame rather than loading the chat
 // inside it.
 const backLink = document.getElementById('backLink');
+const backHint = document.getElementById('backHint');
+const backNote = document.getElementById('backNote');
 backLink.href =
   'https://cdn.botpress.cloud/webchat/v3.7/shareable.html?configUrl=https://files.bpcontent.cloud/2026/07/06/15/20260706154253-12RQCOG9.json';
 backLink.target = '_top';
 
 // Mg Waing's game card opens this page in a NEW tab, so the chat the player
-// came from is still sitting open behind us. Following the href in that case
-// loads a second copy of the same conversation and leaves them with two
-// identical chat tabs. So when we know we were opened from the chat, just
-// close this tab - that drops them straight back on the real conversation.
+// came from is still sitting open behind us. Following the href would load a
+// SECOND copy of that same conversation and leave the player with two
+// identical chat tabs - which is exactly the bug this replaces.
 //
-// The game runs in an iframe inside play.html, so the tab-level window (and
-// therefore the opener) is window.top. Same origin, so this is readable.
+// We cannot just close this tab instead: Botpress opens the card link with
+// rel=noopener, so window.opener is null and a tab with no opener is not
+// allowed to close itself. Verified in Chrome - opener null, history length 1.
+//
+// So point the player at the tab they already have, and carry the score with
+// them so they know what to type. The href stays as a real escape hatch for
+// anyone who genuinely closed the chat, or who opened the game directly.
 backLink.addEventListener('click', function (e) {
-  let top;
-  try {
-    top = window.top;
-    if (!top.opener || top.opener.closed) return;   // opened directly - use the href
-  } catch (err) {
-    return;                                          // can't see the top window - use the href
-  }
-
   e.preventDefault();
-  try { top.opener.focus(); } catch (err) { /* focusing is a nicety, not required */ }
-  top.close();
 
-  // If the browser refused to close the tab, fall back to navigating so the
-  // button is never a dead end.
-  setTimeout(function () { top.location.href = backLink.href; }, 150);
+  const score = scoreEl.textContent;
+  const best  = bestEl.textContent;
+
+  backNote.innerHTML =
+    '<strong>Mg Waing is still open in your other tab.</strong><br>' +
+    'Switch to it and tell him your score' +
+    (score !== '0' ? ' — you got <strong>' + score + '</strong>' : '') +
+    (best !== '0' ? ' (best <strong>' + best + '</strong>)' : '') +
+    '.<br><a id="freshChat">Closed that tab? Open Mg Waing here.</a>';
+
+  // Built as a real link afterwards so the href and the frame-escaping target
+  // are set the same way as the button itself.
+  const fresh = document.getElementById('freshChat');
+  fresh.href = backLink.href;
+  fresh.target = '_top';
+
+  backNote.hidden = false;
+  backLink.hidden = true;
+  backHint.hidden = true;
 });
 </script>
 

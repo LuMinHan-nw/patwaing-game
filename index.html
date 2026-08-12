@@ -147,11 +147,21 @@
   button.primary { background: var(--gold); color: var(--lacquer); }
   button.primary:hover { background: var(--gold-bright); }
 
+  /* This is the only way back to the chat, so it is a real button, not a
+     footnote. */
   .back-link {
+    display: inline-block;
     margin-top: 26px;
-    font-size: 0.85rem;
+    padding: 10px 22px;
+    border: 2px solid var(--gold);
+    border-radius: 999px;
+    font-size: 0.9rem;
     color: var(--gold);
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
   }
+
+  .back-link:hover { background: var(--gold); color: var(--lacquer); }
 
   .hint {
     margin-top: 10px;
@@ -186,6 +196,7 @@
 <p class="hint">Tip: you can also use the number keys 1&ndash;9.</p>
 
 <a class="back-link" href="#" id="backLink">&larr; Back to Mg Waing</a>
+<p class="hint">Tell him how you did when you get there.</p>
 
 <script>
 // ---------------------------------------------------------------------------
